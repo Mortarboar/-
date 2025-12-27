@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>114學測自然級分計算器</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; padding: 20px; max-width: 500px; margin: 0 auto; background-color: #f0f2f5; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h2 { color: #1a1a1a; text-align: center; margin-top: 0; }
+        .score-display { background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+        .label { color: #666; font-size: 0.9em; }
+        .btn-row { margin-bottom: 15px; }
+        .row-title { font-size: 0.85em; color: #888; margin-bottom: 5px; font-weight: bold; }
+        .btn-group { display: flex; flex-wrap: wrap; gap: 8px; }
+        button { flex: 1; min-width: 60px; padding: 12px 5px; cursor: pointer; border: 1px solid #dee2e6; background: #fff; border-radius: 8px; font-weight: 500; transition: all 0.2s; }
+        button:hover { background: #f1f3f5; border-color: #adb5bd; }
+        button:active { transform: translateY(1px); }
+        .btn-multi { border-left: 4px solid #00b894; } /* 多選題顏色標示 */
+        .controls { display: flex; gap: 10px; margin-top: 20px; }
+        .undo { background: #ffeaa7; border: none; flex: 2; }
+        .reset { background: #ff7675; color: white; border: none; flex: 1; }
+        .result-box { margin-top: 25px; padding: 20px; background: #e3f2fd; border-radius: 12px; text-align: center; border: 1px solid #bbdefb; }
+        .result-val { font-size: 1.8em; font-weight: bold; color: #2d3436; }
+        .grade-val { font-size: 2.8em; color: #0984e3; font-weight: 800; display: block; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>114 自然級分計算</h2>
+    
+    <div class="score-display">
+        <div class="label">目前總扣分</div>
+        <div id="deductionDisplay" style="font-size: 1.2em; font-weight: bold; color: #d63031;">0.0</div>
+    </div>
+
+    <div class="btn-row">
+        <div class="row-title">多選題扣分 (0.8 / 1.6)</div>
+        <div class="btn-group">
+            <button class="btn-multi" onclick="addDeduction(0.8)">-0.8</button>
+            <button class="btn-multi" onclick="addDeduction(1.6)">-1.6</button>
+        </div>
+    </div>
+
+    <div class="btn-row">
+        <div class="row-title">一般扣分</div>
+        <div class="btn-group">
+            <button onclick="addDeduction(1)">-1</button>
+            <button onclick="addDeduction(2)">-2</button>
+            <button onclick="addDeduction(3)">-3</button>
+            <button onclick="addDeduction(4)">-4</button>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="undo" onclick="undo()">↩ 返回上一步</button>
+        <button class="reset" onclick="reset()">歸零</button>
+    </div>
+
+    <div class="result-box">
+        <div class="label">原始得分 (滿分 128)</div>
+        <div class="result-val" id="finalScore">128.00</div>
+        <div style="margin: 10px 0; border-top: 1px dashed #90caf9;"></div>
+        <div class="label">預估級分</div>
+        <div class="grade-val" id="finalGrade">15</div>
+    </div>
+</div>
+
+<script>
+    let history = [0]; // 紀錄每次扣分後的總扣分值
+    const maxScore = 128;
+
+    // 114自然科級距數據
+    const gradeTable = [
+        { grade: 15, min: 110.25, max: 128.00 },
+        { grade: 14, min: 102.37, max: 110.25 },
+        { grade: 13, min: 94.50,  max: 102.37 },
+        { grade: 12, min: 86.62,  max: 94.50 },
+        { grade: 11, min: 78.75,  max: 86.62 },
+        { grade: 10, min: 70.87,  max: 78.75 },
+        { grade: 9,  min: 63.00,  max: 70.87 },
+        { grade: 8,  min: 55.12,  max: 63.00 },
+        { grade: 7,  min: 47.25,  max: 55.12 },
+        { grade: 6,  min: 39.37,  max: 47.25 },
+        { grade: 5,  min: 31.50,  max: 39.37 },
+        { grade: 4,  min: 23.62,  max: 31.50 },
+        { grade: 3,  min: 15.75,  max: 23.62 },
+        { grade: 2,  min: 7.87,   max: 15.75 },
+        { grade: 1,  min: 0.00,   max: 7.87 }
+    ];
+
+    function addDeduction(val) {
+        let currentDeduction = history[history.length - 1];
+        let newDeduction = Math.round((currentDeduction + val) * 10) / 10;
+        history.push(newDeduction);
+        updateUI();
+    }
+
+    function undo() {
+        if (history.length > 1) {
+            history.pop();
+            updateUI();
+        }
+    }
+
+    function reset() {
+        history = [0];
+        updateUI();
+    }
+
+    function calculateGrade(score) {
+        if (score <= 0) return 0;
+        for (let item of gradeTable) {
+            // 邏輯：分數 > 低標 且 分數 <= 高標
+            if (score > item.min && score <= item.max) {
+                return item.grade;
+            }
+        }
+        return 1;
+    }
+
+    function updateUI() {
+        let totalDeduction = history[history.length - 1];
+        let currentScore = Math.max(0, maxScore - totalDeduction);
+        currentScore = Math.round(currentScore * 100) / 100;
+        
+        document.getElementById('deductionDisplay').innerText = totalDeduction.toFixed(1);
+        document.getElementById('finalScore').innerText = currentScore.toFixed(2);
+        document.getElementById('finalGrade').innerText = calculateGrade(currentScore);
+    }
+</script>
+
+</body>
+</html>
